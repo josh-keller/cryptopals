@@ -1,5 +1,10 @@
 package set1
 
+import (
+	"encoding/hex"
+	"math"
+)
+
 var englishFreq = map[byte]float64{
 	32:  0.167564443682168,
 	101: 0.08610229517681191,
@@ -96,4 +101,67 @@ var englishFreq = map[byte]float64{
 	5:   6.338218895840436e-08,
 	27:  6.338218895840436e-08,
 	30:  6.338218895840436e-08,
+}
+
+const (
+	TAB = byte(9)
+	LF  = byte(10)
+	CR  = byte(13)
+)
+
+// Calculate how closely the character frequency matches expected
+// English characters. Lower number is better. Used the chi-square test
+// based on some research I did and after unsuccessfully trying other methods.
+func calculateWeight(bs []byte) float64 {
+	freq := make(map[byte]int)
+	for _, b := range bs {
+		if b >= ' ' && b <= '~' { // Normal printable ascii characters
+			freq[b]++
+		} else if b == TAB || b == LF || b == CR { // Printable whitespace
+			freq[b]++
+		} else { // If this string has non-printable chars, it probably isn't what we want
+			return math.Inf(1)
+		}
+	}
+
+	chi2 := 0.0
+	len := len(bs)
+	for i := byte(0); i < 128; i++ {
+		observed := float64(freq[i])
+		expectedFreq, exists := englishFreq[i]
+		if !exists {
+			continue
+		}
+		expected := float64(len) * expectedFreq
+		difference := observed - expected
+		chi2 += difference * difference / expected
+	}
+
+	return chi2
+}
+
+func bestByteAndScore(h string) (byte, float64, string) {
+	bs, err := hex.DecodeString(h)
+	if err != nil {
+		panic(err)
+	}
+	xored := make([]byte, len(bs))
+	copy(xored, bs)
+	bestWeight := 1000.0
+	currBest := make([]byte, len(bs))
+	bestByte := 0
+
+	for xorByte := 0; xorByte < 256; xorByte++ {
+		for i := range bs {
+			xored[i] = bs[i] ^ byte(xorByte)
+		}
+		weight := calculateWeight(xored)
+		if weight < bestWeight {
+			bestWeight = weight
+			copy(currBest, xored)
+			bestByte = xorByte
+		}
+	}
+
+	return byte(bestByte), bestWeight, string(currBest)
 }

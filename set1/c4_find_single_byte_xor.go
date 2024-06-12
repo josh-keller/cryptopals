@@ -5,12 +5,8 @@ import (
 )
 
 func FindSingleXor(input string) string {
-	// Read through all lines
 	tmp := strings.Fields(input)
-	// Filter out any that are not 60-characters
-	// lines := tmp
 	lines := make([]string, 0, len(tmp))
-
 	for _, l := range tmp {
 		if len(l) == 60 {
 			lines = append(lines, l)
