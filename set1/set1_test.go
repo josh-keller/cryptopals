@@ -3,7 +3,6 @@ package set1
 import (
 	"bytes"
 	"encoding/hex"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,12 +37,11 @@ func TestC3(t *testing.T) {
 }
 
 func TestC4(t *testing.T) {
-	contents, err := os.ReadFile("../inputs/4.txt")
+	lines, err := ReadHexLines("../inputs/4.txt")
 	require.NoError(t, err, "Reading file")
-	input := string(contents)
 	want := "Now that the party is jumping\n"
 
-	got := FindSingleXor(input)
+	got := FindSingleXor(lines)
 	assert.Equal(t, want, got)
 }
 
@@ -95,5 +93,18 @@ func TestDecryptAESECB(t *testing.T) {
 		assert.NotEmpty(t, plaintext)
 		assert.Contains(t, string(plaintext), "So come on, everybody and sing this song")
 		assert.Equal(t, 80, len(bytes.Split(plaintext, []byte{'\n'})))
+	})
+}
+
+func TestDetectAESECB(t *testing.T) {
+	t.Run("detect AES ECB", func(t *testing.T) {
+		lines, err := ReadHexLines("../inputs/8.txt")
+		require.NoError(t, err)
+		assert.NotEmpty(t, lines)
+
+		ecbLines := DetectAESECB(lines, 16)
+		assert.NotEmpty(t, ecbLines)
+		assert.Len(t, ecbLines, 1)
+		assert.Equal(t, "d880", string(ecbLines[0][0:4]))
 	})
 }
