@@ -1,6 +1,6 @@
 package set1
 
-func CrackSingleByteXor(h string) string {
-	_, _, cracked := bestByteAndScore(h)
+func CrackSingleByteXor(b []byte) []byte {
+	_, _, cracked := bestByteAndScore(b)
 	return cracked
 }

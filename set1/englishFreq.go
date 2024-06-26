@@ -1,7 +1,7 @@
 package set1
 
 import (
-	"encoding/hex"
+	// "fmt"
 	"math"
 )
 
@@ -114,15 +114,23 @@ const (
 // based on some research I did and after unsuccessfully trying other methods.
 func calculateWeight(bs []byte) float64 {
 	freq := make(map[byte]int)
+	// Filter out any with non-printable characters
+	ltrSpcCount := 0
 	for _, b := range bs {
+		if b == ' ' || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') {
+			ltrSpcCount++
+		}
 		if b >= ' ' && b <= '~' { // Normal printable ascii characters
-			freq[b]++
+			continue
 		} else if b == TAB || b == LF || b == CR { // Printable whitespace
-			freq[b]++
+			continue
 		} else { // If this string has non-printable chars, it probably isn't what we want
 			return math.Inf(1)
 		}
 	}
+
+	return 1.0 / float64(ltrSpcCount) / float64(len(bs))
+	// Calculate the ratio of letters and spaces to anything else
 
 	chi2 := 0.0
 	len := len(bs)
@@ -140,14 +148,10 @@ func calculateWeight(bs []byte) float64 {
 	return chi2
 }
 
-func bestByteAndScore(h string) (byte, float64, string) {
-	bs, err := hex.DecodeString(h)
-	if err != nil {
-		panic(err)
-	}
+func bestByteAndScore(bs []byte) (byte, float64, []byte) {
 	xored := make([]byte, len(bs))
 	copy(xored, bs)
-	bestWeight := 1000.0
+	bestWeight := math.Inf(1)
 	currBest := make([]byte, len(bs))
 	bestByte := 0
 
@@ -156,6 +160,7 @@ func bestByteAndScore(h string) (byte, float64, string) {
 			xored[i] = bs[i] ^ byte(xorByte)
 		}
 		weight := calculateWeight(xored)
+		// fmt.Printf("Byte: %d - %s, %f\n", xorByte, xored[:20], weight)
 		if weight < bestWeight {
 			bestWeight = weight
 			copy(currBest, xored)
@@ -163,5 +168,5 @@ func bestByteAndScore(h string) (byte, float64, string) {
 		}
 	}
 
-	return byte(bestByte), bestWeight, string(currBest)
+	return byte(bestByte), bestWeight, currBest
 }

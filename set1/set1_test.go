@@ -1,6 +1,10 @@
 package set1
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/hex"
+	"io"
 	"os"
 	"testing"
 
@@ -27,11 +31,12 @@ func TestC2(t *testing.T) {
 }
 
 func TestC3(t *testing.T) {
-	cipher := "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736"
-	want := "Cooking MC's like a pound of bacon"
+	cipher, err := hex.DecodeString("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736")
+	require.NoError(t, err, "Decoding String")
+	want := []byte("Cooking MC's like a pound of bacon")
 
 	got := CrackSingleByteXor(cipher)
-	assert.Equal(t, got, want)
+	assert.Equal(t, want, got)
 }
 
 func TestC4(t *testing.T) {
@@ -47,17 +52,13 @@ func TestC4(t *testing.T) {
 func TestC5(t *testing.T) {
 	plaintext := "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal"
 	key := "ICE"
-	expected := `0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f`
+	expected := "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"
 
 	got := RepeatedKeyXor(plaintext, key)
 	assert.Equal(t, expected, got)
 }
 
 func TestBreakRepXor(t *testing.T) {
-	// cyphertext, _ := hex.DecodeString("0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f")
-	cyphertext, err := os.ReadFile("../inputs/6.txt")
-	require.NoError(t, err, "Opening file")
-
 	t.Run("hamming distance", func(t *testing.T) {
 		s1 := "this is a test"
 		s2 := "wokka wokka!!!"
@@ -66,13 +67,26 @@ func TestBreakRepXor(t *testing.T) {
 		assert.Equal(t, expected, got)
 	})
 
-	t.Run("find key size", func(t *testing.T) {
-		keySize := findKeySize(cyphertext, 2, 40)
+	file, err := os.Open("../inputs/6.txt")
+	require.NoError(t, err, "Opening file")
+	decoder := base64.NewDecoder(base64.RawStdEncoding.WithPadding('='), file)
+	cyphertext, err := io.ReadAll(decoder)
+	require.NoError(t, err, "Base64 decode")
+
+	t.Run("find known key size", func(t *testing.T) {
+		knownCyphertext, _ := hex.DecodeString("0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f")
+		keySize := findKeySize(knownCyphertext, 2, 20)
 		assert.Equal(t, 3, keySize)
+	})
+
+	t.Run("find file key size", func(t *testing.T) {
+		keySize := findKeySize(cyphertext, 2, 40)
+		assert.Equal(t, 29, keySize)
 	})
 
 	t.Run("Break repeared xor", func(t *testing.T) {
 		plaintext := BreakRepeatedKeyXor(cyphertext)
-		assert.Equal(t, string(plaintext), "")
+		assert.Contains(t, string(plaintext), "So come on, everybody and sing this song")
+		assert.Equal(t, 80, len(bytes.Split(plaintext, []byte{'\n'})))
 	})
 }
