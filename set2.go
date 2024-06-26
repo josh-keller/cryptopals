@@ -1,8 +1,6 @@
-package set1
+package main
 
-import (
-	"bytes"
-)
+import "bytes"
 
 func PadString(s string, blocksize int) string {
 	if blocksize > 255 {

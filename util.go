@@ -1,8 +1,11 @@
-package set1
+package main
 
 import (
-	// "fmt"
+	"bytes"
+	"encoding/base64"
+	"io"
 	"math"
+	"os"
 )
 
 var englishFreq = map[byte]float64{
@@ -109,11 +112,28 @@ const (
 	CR  = byte(13)
 )
 
+func ReadBase64File(filename string) ([]byte, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	decoder := base64.NewDecoder(base64.RawStdEncoding.WithPadding('='), file)
+	return io.ReadAll(decoder)
+}
+
+func ReadHexLines(filename string) ([][]byte, error) {
+	contents, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.Split(contents, []byte{'\n'}), nil
+}
+
 // Calculate how closely the character frequency matches expected
 // English characters. Lower number is better. Used the chi-square test
 // based on some research I did and after unsuccessfully trying other methods.
 func calculateWeight(bs []byte) float64 {
-	freq := make(map[byte]int)
 	// Filter out any with non-printable characters
 	ltrSpcCount := 0
 	for _, b := range bs {
@@ -131,21 +151,21 @@ func calculateWeight(bs []byte) float64 {
 
 	return 1.0 / float64(ltrSpcCount) / float64(len(bs))
 	// Calculate the ratio of letters and spaces to anything else
-
-	chi2 := 0.0
-	len := len(bs)
-	for i := byte(0); i < 128; i++ {
-		observed := float64(freq[i])
-		expectedFreq, exists := englishFreq[i]
-		if !exists {
-			continue
-		}
-		expected := float64(len) * expectedFreq
-		difference := observed - expected
-		chi2 += difference * difference / expected
-	}
-
-	return chi2
+	//
+	// chi2 := 0.0
+	// len := len(bs)
+	// for i := byte(0); i < 128; i++ {
+	// 	observed := float64(freq[i])
+	// 	expectedFreq, exists := englishFreq[i]
+	// 	if !exists {
+	// 		continue
+	// 	}
+	// 	expected := float64(len) * expectedFreq
+	// 	difference := observed - expected
+	// 	chi2 += difference * difference / expected
+	// }
+	//
+	// return chi2
 }
 
 func bestByteAndScore(bs []byte) (byte, float64, []byte) {

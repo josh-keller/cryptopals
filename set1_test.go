@@ -1,4 +1,4 @@
-package set1
+package main
 
 import (
 	"bytes"
@@ -37,7 +37,7 @@ func TestC3(t *testing.T) {
 }
 
 func TestC4(t *testing.T) {
-	lines, err := ReadHexLines("../inputs/4.txt")
+	lines, err := ReadHexLines("./inputs/4.txt")
 	require.NoError(t, err, "Reading file")
 	want := "Now that the party is jumping\n"
 
@@ -63,7 +63,7 @@ func TestBreakRepXor(t *testing.T) {
 		assert.Equal(t, expected, got)
 	})
 
-	cyphertext, err := ReadBase64File("../inputs/6.txt")
+	cyphertext, err := ReadBase64File("./inputs/6.txt")
 	require.NoError(t, err, "Opening file")
 
 	t.Run("find known key size", func(t *testing.T) {
@@ -86,7 +86,7 @@ func TestBreakRepXor(t *testing.T) {
 
 func TestDecryptAESECB(t *testing.T) {
 	t.Run("decrypt with key", func(t *testing.T) {
-		contents, err := ReadBase64File("../inputs/7.txt")
+		contents, err := ReadBase64File("./inputs/7.txt")
 		require.NoError(t, err)
 		plaintext, err := DecryptAESECB(contents, []byte("YELLOW SUBMARINE"))
 		require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestDecryptAESECB(t *testing.T) {
 
 func TestDetectAESECB(t *testing.T) {
 	t.Run("detect AES ECB", func(t *testing.T) {
-		lines, err := ReadHexLines("../inputs/8.txt")
+		lines, err := ReadHexLines("./inputs/8.txt")
 		require.NoError(t, err)
 		assert.NotEmpty(t, lines)
 
@@ -106,22 +106,5 @@ func TestDetectAESECB(t *testing.T) {
 		assert.NotEmpty(t, ecbLines)
 		assert.Len(t, ecbLines, 1)
 		assert.Equal(t, "d880", string(ecbLines[0][0:4]))
-	})
-}
-
-func TestPKCS7Padding(t *testing.T) {
-	t.Run("PKCS#7 padding", func(t *testing.T) {
-		cases := []struct {
-			input     string
-			blocksize int
-			expected  string
-		}{
-			{"YELLOW SUBMARINE", 20, "YELLOW SUBMARINE\x04\x04\x04\x04"},
-			{"YELLOW SUBMARINE", 16, "YELLOW SUBMARINE\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10"},
-		}
-		for _, tc := range cases {
-			padded := PadString(tc.input, tc.blocksize)
-			assert.Equal(t, tc.expected, padded)
-		}
 	})
 }
