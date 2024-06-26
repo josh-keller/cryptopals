@@ -2,9 +2,7 @@ package set1
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/hex"
-	"io"
 	"os"
 	"testing"
 
@@ -67,11 +65,8 @@ func TestBreakRepXor(t *testing.T) {
 		assert.Equal(t, expected, got)
 	})
 
-	file, err := os.Open("../inputs/6.txt")
+	cyphertext, err := ReadBase64File("../inputs/6.txt")
 	require.NoError(t, err, "Opening file")
-	decoder := base64.NewDecoder(base64.RawStdEncoding.WithPadding('='), file)
-	cyphertext, err := io.ReadAll(decoder)
-	require.NoError(t, err, "Base64 decode")
 
 	t.Run("find known key size", func(t *testing.T) {
 		knownCyphertext, _ := hex.DecodeString("0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f")
@@ -86,6 +81,18 @@ func TestBreakRepXor(t *testing.T) {
 
 	t.Run("Break repeared xor", func(t *testing.T) {
 		plaintext := BreakRepeatedKeyXor(cyphertext)
+		assert.Contains(t, string(plaintext), "So come on, everybody and sing this song")
+		assert.Equal(t, 80, len(bytes.Split(plaintext, []byte{'\n'})))
+	})
+}
+
+func TestDecryptAESECB(t *testing.T) {
+	t.Run("decrypt with key", func(t *testing.T) {
+		contents, err := ReadBase64File("../inputs/7.txt")
+		require.NoError(t, err)
+		plaintext, err := DecryptAESECB(contents, []byte("YELLOW SUBMARINE"))
+		require.NoError(t, err)
+		assert.NotEmpty(t, plaintext)
 		assert.Contains(t, string(plaintext), "So come on, everybody and sing this song")
 		assert.Equal(t, 80, len(bytes.Split(plaintext, []byte{'\n'})))
 	})
