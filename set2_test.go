@@ -68,11 +68,10 @@ func TestOracle(t *testing.T) {
 		for i := 0; i < 1000; i++ {
 			pText := []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 			cText := oracleHelper(pText, i%2)
-			if MayBeECB(cText, 16) {
-				if i%2 == 1 {
-					correct++
-				}
-			} else if i%2 == 0 {
+			mode := DetectMode(cText)
+			if mode == "ECB" && i%2 == 1 {
+				correct++
+			} else if mode == "CBC" && i%2 == 0 {
 				correct++
 			}
 		}

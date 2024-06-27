@@ -105,3 +105,10 @@ func oracleHelper(input []byte, mode int) []byte {
 		return EncryptECB(toEncrypt, key)
 	}
 }
+
+func DetectMode(cText []byte) string {
+	if MayBeECB(cText, 16) {
+		return "ECB"
+	}
+	return "CBC"
+}
