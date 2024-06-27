@@ -19,9 +19,9 @@ func TestC1(t *testing.T) {
 }
 
 func TestC2(t *testing.T) {
-	input1 := "1c0111001f010100061a024b53535009181c"
-	input2 := "686974207468652062756c6c277320657965"
-	want := "746865206b696420646f6e277420706c6179"
+	input1, _ := hex.DecodeString("1c0111001f010100061a024b53535009181c")
+	input2, _ := hex.DecodeString("686974207468652062756c6c277320657965")
+	want, _ := hex.DecodeString("746865206b696420646f6e277420706c6179")
 
 	got := FixedXor(input1, input2)
 	assert.Equal(t, want, got)
