@@ -35,12 +35,7 @@ func FindSingleXor(lines [][]byte) string {
 	output := ""
 	// Get the score of the highest single xor
 	for _, l := range lines {
-		buffer := make([]byte, len(l)/2)
-		_, err := hex.Decode(buffer, l)
-		if err != nil {
-			panic(err)
-		}
-		_, score, out := bestByteAndScore(buffer)
+		_, score, out := bestByteAndScore(l)
 		if score < bestScore {
 			bestScore = score
 			output = string(out)
@@ -144,7 +139,22 @@ func BreakRepeatedKeyXor(cypherBytes []byte) []byte {
 	return buffer.Bytes()
 }
 
-func DecryptAESECB(cyphertext []byte, key []byte) ([]byte, error) {
+// TODO: make interface consitent for error handling
+func EncryptECB(pText []byte, key []byte) []byte {
+	cipher, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+	toEncrypt := PKCSPad(pText, cipher.BlockSize())
+	cText := make([]byte, len(toEncrypt))
+	for p := 0; p < len(toEncrypt); p += cipher.BlockSize() {
+		cipher.Encrypt(cText[p:], toEncrypt[p:])
+	}
+
+	return cText
+}
+
+func DecryptECB(cyphertext []byte, key []byte) ([]byte, error) {
 	cipher, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -155,13 +165,13 @@ func DecryptAESECB(cyphertext []byte, key []byte) ([]byte, error) {
 	for p := 0; p < len(plaintext); p += cipher.BlockSize() {
 		cipher.Decrypt(plaintext[p:], cyphertext[p:])
 	}
-	return plaintext, nil
+	return StripPKCSPad(plaintext), nil
 }
 
 func DetectAESECB(lines [][]byte, blocksize int) [][]byte {
 	hits := make([][]byte, 0)
 	for _, l := range lines {
-		if MayBeECB(string(l), blocksize) {
+		if MayBeECB(l, blocksize) {
 			hits = append(hits, l)
 		}
 	}
@@ -169,13 +179,13 @@ func DetectAESECB(lines [][]byte, blocksize int) [][]byte {
 	return hits
 }
 
-func MayBeECB(s string, blocksize int) bool {
+func MayBeECB(b []byte, blocksize int) bool {
 	blocks := make(map[string]struct{})
-	if len(s)%(blocksize*2) != 0 {
+	if len(b)%blocksize != 0 {
 		return false
 	}
-	for i := 0; i+2*blocksize < len(s); i += 2 * blocksize {
-		hexBlock := s[i : i+2*blocksize]
+	for i := 0; i+blocksize < len(b); i += blocksize {
+		hexBlock := string(b[i : i+blocksize])
 		if _, exists := blocks[hexBlock]; exists {
 			return true
 		}

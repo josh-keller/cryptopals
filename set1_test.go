@@ -84,15 +84,25 @@ func TestBreakRepXor(t *testing.T) {
 	})
 }
 
-func TestDecryptAESECB(t *testing.T) {
+func TestECB(t *testing.T) {
 	t.Run("decrypt with key", func(t *testing.T) {
 		contents, err := ReadBase64File("./inputs/7.txt")
 		require.NoError(t, err)
-		plaintext, err := DecryptAESECB(contents, []byte("YELLOW SUBMARINE"))
+		plaintext, err := DecryptECB(contents, []byte("YELLOW SUBMARINE"))
 		require.NoError(t, err)
 		assert.NotEmpty(t, plaintext)
 		assert.Contains(t, string(plaintext), "So come on, everybody and sing this song")
 		assert.Equal(t, 80, len(bytes.Split(plaintext, []byte{'\n'})))
+	})
+
+	t.Run("Encrypt and decrypt ECB", func(t *testing.T) {
+		plainBytes := RandomBytes(16 * 16)
+		key := RandomBytes(16)
+
+		cText := EncryptECB(plainBytes, key)
+		pText, err := DecryptECB(cText, key)
+		require.NoError(t, err)
+		assert.Equal(t, plainBytes, pText)
 	})
 }
 
@@ -105,6 +115,6 @@ func TestDetectAESECB(t *testing.T) {
 		ecbLines := DetectAESECB(lines, 16)
 		assert.NotEmpty(t, ecbLines)
 		assert.Len(t, ecbLines, 1)
-		assert.Equal(t, "d880", string(ecbLines[0][0:4]))
+		assert.Equal(t, "\xd8\x80", string(ecbLines[0][0:2]))
 	})
 }

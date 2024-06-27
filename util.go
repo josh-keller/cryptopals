@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"io"
 	"math"
 	"os"
@@ -127,7 +129,17 @@ func ReadHexLines(filename string) ([][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return bytes.Split(contents, []byte{'\n'}), nil
+	rawLines := bytes.Split(contents, []byte{'\n'})
+	decodedLines := make([][]byte, len(rawLines))
+	for i, rl := range rawLines {
+		dest := make([]byte, len(rl)/2)
+		_, err := hex.Decode(dest, rl)
+		if err != nil {
+			return nil, err
+		}
+		decodedLines[i] = dest
+	}
+	return decodedLines, nil
 }
 
 // Calculate how closely the character frequency matches expected
@@ -180,7 +192,6 @@ func bestByteAndScore(bs []byte) (byte, float64, []byte) {
 			xored[i] = bs[i] ^ byte(xorByte)
 		}
 		weight := calculateWeight(xored)
-		// fmt.Printf("Byte: %d - %s, %f\n", xorByte, xored[:20], weight)
 		if weight < bestWeight {
 			bestWeight = weight
 			copy(currBest, xored)
@@ -189,4 +200,18 @@ func bestByteAndScore(bs []byte) (byte, float64, []byte) {
 	}
 
 	return byte(bestByte), bestWeight, currBest
+}
+
+func RandomBytes(size int) []byte {
+	if size < 0 {
+		panic("Cannot generate less than 0 bytes")
+	}
+
+	b := make([]byte, size)
+	_, err := rand.Reader.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	return b
 }

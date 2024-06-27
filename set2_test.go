@@ -29,11 +29,10 @@ func TestPKCS7Padding(t *testing.T) {
 	t.Run("Test pad and strip", func(t *testing.T) {
 		size, err := rand.Int(rand.Reader, big.NewInt(255))
 		require.NoError(t, err)
-		text := make([]byte, size.Int64())
+		text := RandomBytes(int(size.Int64()))
 		padded := PKCSPad(text, 16)
 		stripped := StripPKCSPad(padded)
 		assert.Equal(t, text, stripped)
-
 	})
 }
 
@@ -50,8 +49,7 @@ func TestCBC(t *testing.T) {
 	})
 
 	t.Run("Encrypt and decrypt CBC", func(t *testing.T) {
-		plainBytes := make([]byte, 16*4)
-		rand.Read(plainBytes)
+		plainBytes := RandomBytes(16 * 16)
 		key := make([]byte, 16)
 		iv := make([]byte, 16)
 		rand.Read(key)
@@ -60,5 +58,24 @@ func TestCBC(t *testing.T) {
 		cText := EncryptCBC(plainBytes, key, iv)
 		pText := DecryptCBC(cText, key, iv)
 		assert.Equal(t, plainBytes, pText)
+	})
+}
+
+func TestOracle(t *testing.T) {
+	t.Run("Test Oracle", func(t *testing.T) {
+		runs := 1000.0
+		correct := 0.0
+		for i := 0; i < 1000; i++ {
+			pText := []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+			cText := oracleHelper(pText, i%2)
+			if MayBeECB(cText, 16) {
+				if i%2 == 1 {
+					correct++
+				}
+			} else if i%2 == 0 {
+				correct++
+			}
+		}
+		assert.Equal(t, runs, correct)
 	})
 }

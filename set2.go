@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/aes"
+	"math/rand"
 )
 
 func PKCSPad(b []byte, blocksize int) []byte {
@@ -86,4 +87,21 @@ func DecryptCBC(ctext, key, iv []byte) []byte {
 	}
 
 	return StripPKCSPad(ptext)
+}
+
+func EncryptionOracle(input []byte) []byte {
+	return oracleHelper(input, rand.Intn(2))
+}
+
+func oracleHelper(input []byte, mode int) []byte {
+	key := RandomBytes(16)
+	prefix := RandomBytes(rand.Intn(6) + 5)
+	postfix := RandomBytes(rand.Intn(6) + 5)
+	toEncrypt := append(prefix, input...)
+	toEncrypt = append(toEncrypt, postfix...)
+	if mode == 0 {
+		return EncryptCBC(toEncrypt, key, RandomBytes(16))
+	} else {
+		return EncryptECB(toEncrypt, key)
+	}
 }
