@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/aes"
 	"encoding/base64"
-	"fmt"
 	"math/rand"
 )
 
@@ -128,42 +127,50 @@ func EncryptECBConsistentKey(pText []byte) []byte {
 	return EncryptECB(pText, ByteAtTimeKey)
 }
 
-func DetectBlockSize(f func([]byte) []byte) int {
-	ptext := []byte("A")
-	intitalCtext := f(ptext)
-	for {
+func DetectBlockMsgSize(f func([]byte) []byte) (int, int) {
+	ptext := []byte{}
+	initialCtext := f(ptext)
+	initLen := len(initialCtext)
+	for i := 1; ; i++ {
 		ptext = append(ptext, 'A')
 		nextCtext := f(ptext)
-		sizeDiff := len(nextCtext) - len(intitalCtext)
+		sizeDiff := len(nextCtext) - initLen
 		if sizeDiff > 0 {
-			return sizeDiff
+			return sizeDiff, initLen - i
 		}
 	}
 }
 
-func CrackConsistentECB(f func([]byte) []byte) []byte {
-	blockSize := DetectBlockSize(f)
-	firstBlock := []byte{}
+func CrackConsistentECB(encrypt func([]byte) []byte) []byte {
+	blockSize, msgSize := DetectBlockMsgSize(encrypt)
+	message := []byte{}
 
-	for i := 1; i <= blockSize; i++ {
-		firstBlock = append(firstBlock, CrackLastByte(f, blockSize, firstBlock))
+	for i := 1; i <= msgSize; i++ {
+		message = append(message, CrackLastByte(encrypt, blockSize, message))
 	}
 
-	fmt.Println(string(firstBlock))
-	return firstBlock
+	return message
 }
 
-func CrackLastByte(f func([]byte) []byte, blockSize int, known []byte) byte {
-	prefix := bytes.Repeat([]byte{0}, blockSize-len(known)-1)
+func CrackLastByte(encrypt func([]byte) []byte, blockSize int, known []byte) byte {
 	dictionary := make(map[string]byte)
-	challenge := append(prefix, known...)
-	challenge = append(challenge, 0)
+	knownBlocksCount := len(known) / blockSize
+	extraKnownBytesCount := len(known) % blockSize
+	firstByte := knownBlocksCount * blockSize
+
+	prefix := bytes.Repeat([]byte{0}, blockSize-extraKnownBytesCount-1)
+	prefixAndKnown := append(prefix, known...)
+
+	challenge := append(prefixAndKnown, 0)
+	if len(challenge)%blockSize != 0 {
+		panic("Challenge not a multiple of blockSize")
+	}
 	for challengeByte := 0; challengeByte < 256; challengeByte++ {
-		challenge[blockSize-1] = byte(challengeByte)
-		encrpyted := f(challenge)
-		dictionary[string(encrpyted[:blockSize])] = byte(challengeByte)
+		challenge[len(challenge)-1] = byte(challengeByte)
+		encrpyted := encrypt(challenge)
+		dictionary[string(encrpyted[firstByte:firstByte+blockSize])] = byte(challengeByte)
 	}
 
-	encrWithoutChallenge := f(prefix)
-	return dictionary[string(encrWithoutChallenge[:blockSize])]
+	encrWithoutChallenge := encrypt(prefix)
+	return dictionary[string(encrWithoutChallenge[firstByte:firstByte+blockSize])]
 }

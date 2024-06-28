@@ -87,27 +87,29 @@ func TestECBDecryptOneByte(t *testing.T) {
 		assert.NotEmpty(t, cText)
 	})
 
-	t.Run("Can find block size of consistent key func", func(t *testing.T) {
-		blockSize := DetectBlockSize(EncryptECBConsistentKey)
+	t.Run("Can find block size and message size of consistent key func", func(t *testing.T) {
+		blockSize, msgSize := DetectBlockMsgSize(EncryptECBConsistentKey)
 		assert.Equal(t, 16, blockSize)
+		assert.Equal(t, len(decodedString), msgSize)
 	})
 
 	t.Run("Detect consistent key func is using ECB", func(t *testing.T) {
-		blockSize := DetectBlockSize(EncryptECBConsistentKey)
+		blockSize, _ := DetectBlockMsgSize(EncryptECBConsistentKey)
 		pText := bytes.Repeat([]byte{'A'}, blockSize*3)
 		mode := DetectMode(EncryptECBConsistentKey(pText))
 		assert.Equal(t, "ECB", mode)
 	})
 
-	t.Run("Unencrypt first byte", func(t *testing.T) {
-		expected := decodedString[0]
-		firstByte := CrackConsistentECB(EncryptECBConsistentKey)[0]
-		assert.Equal(t, expected, firstByte)
+	t.Run("Decrypt first block", func(t *testing.T) {
+		expected := decodedString[:16]
+		message := CrackConsistentECB(EncryptECBConsistentKey)
+		assert.Equal(t, expected, message[:16])
 	})
 
-	t.Run("Unencrypt first block", func(t *testing.T) {
-		expected := decodedString[:16]
-		firstBlock := CrackConsistentECB(EncryptECBConsistentKey)
-		assert.Equal(t, expected, firstBlock)
+	t.Run("Crack ECB", func(t *testing.T) {
+		expected := decodedString
+		decrypted := CrackConsistentECB(EncryptECBConsistentKey)
+		assert.Equal(t, len(expected), len(decrypted))
+		assert.Equal(t, expected, decrypted)
 	})
 }
