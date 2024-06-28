@@ -146,31 +146,30 @@ func CrackConsistentECB(encrypt func([]byte) []byte) []byte {
 	message := []byte{}
 
 	for i := 1; i <= msgSize; i++ {
-		message = append(message, CrackLastByte(encrypt, blockSize, message))
+		message = append(message, CrackNextByte(encrypt, blockSize, message))
 	}
 
 	return message
 }
 
-func CrackLastByte(encrypt func([]byte) []byte, blockSize int, known []byte) byte {
+func CrackNextByte(encrypt func([]byte) []byte, blockSize int, known []byte) byte {
 	dictionary := make(map[string]byte)
-	knownBlocksCount := len(known) / blockSize
 	extraKnownBytesCount := len(known) % blockSize
-	firstByte := knownBlocksCount * blockSize
+	tgtBlockStart := len(known) - extraKnownBytesCount
+	prefixSize := blockSize - extraKnownBytesCount - 1
 
-	prefix := bytes.Repeat([]byte{0}, blockSize-extraKnownBytesCount-1)
-	prefixAndKnown := append(prefix, known...)
+	prefix := bytes.Repeat([]byte{0}, prefixSize)
+	challenge := append(prefix, known...)
+	challenge = append(challenge, 0)
 
-	challenge := append(prefixAndKnown, 0)
-	if len(challenge)%blockSize != 0 {
-		panic("Challenge not a multiple of blockSize")
-	}
 	for challengeByte := 0; challengeByte < 256; challengeByte++ {
 		challenge[len(challenge)-1] = byte(challengeByte)
-		encrpyted := encrypt(challenge)
-		dictionary[string(encrpyted[firstByte:firstByte+blockSize])] = byte(challengeByte)
+		cText := encrypt(challenge)
+		targetBlock := cText[tgtBlockStart : tgtBlockStart+blockSize]
+		dictionary[string(targetBlock)] = byte(challengeByte)
 	}
 
-	encrWithoutChallenge := encrypt(prefix)
-	return dictionary[string(encrWithoutChallenge[firstByte:firstByte+blockSize])]
+	cTextWithoutChallenge := encrypt(prefix)
+	targetBlock := cTextWithoutChallenge[tgtBlockStart : tgtBlockStart+blockSize]
+	return dictionary[string(targetBlock)]
 }
