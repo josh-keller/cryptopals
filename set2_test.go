@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base64"
 	"math/big"
 	"testing"
 
@@ -76,5 +77,37 @@ func TestOracle(t *testing.T) {
 			}
 		}
 		assert.Equal(t, runs, correct)
+	})
+}
+
+func TestECBDecryptOneByte(t *testing.T) {
+	decodedString, _ := base64.RawStdEncoding.DecodeString(input12)
+	t.Run("Consistent key func produces output", func(t *testing.T) {
+		cText := EncryptECBConsistentKey([]byte("hello"))
+		assert.NotEmpty(t, cText)
+	})
+
+	t.Run("Can find block size of consistent key func", func(t *testing.T) {
+		blockSize := DetectBlockSize(EncryptECBConsistentKey)
+		assert.Equal(t, 16, blockSize)
+	})
+
+	t.Run("Detect consistent key func is using ECB", func(t *testing.T) {
+		blockSize := DetectBlockSize(EncryptECBConsistentKey)
+		pText := bytes.Repeat([]byte{'A'}, blockSize*3)
+		mode := DetectMode(EncryptECBConsistentKey(pText))
+		assert.Equal(t, "ECB", mode)
+	})
+
+	t.Run("Unencrypt first byte", func(t *testing.T) {
+		expected := decodedString[0]
+		firstByte := CrackConsistentECB(EncryptECBConsistentKey)[0]
+		assert.Equal(t, expected, firstByte)
+	})
+
+	t.Run("Unencrypt first block", func(t *testing.T) {
+		expected := decodedString[:16]
+		firstBlock := CrackConsistentECB(EncryptECBConsistentKey)
+		assert.Equal(t, expected, firstBlock)
 	})
 }

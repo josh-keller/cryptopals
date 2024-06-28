@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"crypto/aes"
+	"encoding/base64"
+	"fmt"
 	"math/rand"
 )
 
@@ -111,4 +113,57 @@ func DetectMode(cText []byte) string {
 		return "ECB"
 	}
 	return "CBC"
+}
+
+var ByteAtTimeKey = RandomBytes(16)
+
+const input12 = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK"
+
+func EncryptECBConsistentKey(pText []byte) []byte {
+	pText, err := base64.RawStdEncoding.AppendDecode(pText, []byte(input12))
+	if err != nil {
+		panic(err)
+	}
+
+	return EncryptECB(pText, ByteAtTimeKey)
+}
+
+func DetectBlockSize(f func([]byte) []byte) int {
+	ptext := []byte("A")
+	intitalCtext := f(ptext)
+	for {
+		ptext = append(ptext, 'A')
+		nextCtext := f(ptext)
+		sizeDiff := len(nextCtext) - len(intitalCtext)
+		if sizeDiff > 0 {
+			return sizeDiff
+		}
+	}
+}
+
+func CrackConsistentECB(f func([]byte) []byte) []byte {
+	blockSize := DetectBlockSize(f)
+	firstBlock := []byte{}
+
+	for i := 1; i <= blockSize; i++ {
+		firstBlock = append(firstBlock, CrackLastByte(f, blockSize, firstBlock))
+	}
+
+	fmt.Println(string(firstBlock))
+	return firstBlock
+}
+
+func CrackLastByte(f func([]byte) []byte, blockSize int, known []byte) byte {
+	prefix := bytes.Repeat([]byte{0}, blockSize-len(known)-1)
+	dictionary := make(map[string]byte)
+	challenge := append(prefix, known...)
+	challenge = append(challenge, 0)
+	for challengeByte := 0; challengeByte < 256; challengeByte++ {
+		challenge[blockSize-1] = byte(challengeByte)
+		encrpyted := f(challenge)
+		dictionary[string(encrpyted[:blockSize])] = byte(challengeByte)
+	}
+
+	encrWithoutChallenge := f(prefix)
+	return dictionary[string(encrWithoutChallenge[:blockSize])]
 }
