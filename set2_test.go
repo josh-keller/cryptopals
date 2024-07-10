@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -83,33 +84,73 @@ func TestOracle(t *testing.T) {
 func TestECBDecryptOneByte(t *testing.T) {
 	decodedString, _ := base64.RawStdEncoding.DecodeString(input12)
 	t.Run("Consistent key func produces output", func(t *testing.T) {
-		cText := EncryptECBConsistentKey([]byte("hello"))
+		cText := AppendAndEncryptECBConsistentKey([]byte("hello"))
 		assert.NotEmpty(t, cText)
 	})
 
 	t.Run("Can find block size and message size of consistent key func", func(t *testing.T) {
-		blockSize, msgSize := DetectBlockMsgSize(EncryptECBConsistentKey)
+		blockSize, msgSize := DetectBlockMsgSize(AppendAndEncryptECBConsistentKey)
 		assert.Equal(t, 16, blockSize)
 		assert.Equal(t, len(decodedString), msgSize)
 	})
 
 	t.Run("Detect consistent key func is using ECB", func(t *testing.T) {
-		blockSize, _ := DetectBlockMsgSize(EncryptECBConsistentKey)
+		blockSize, _ := DetectBlockMsgSize(AppendAndEncryptECBConsistentKey)
 		pText := bytes.Repeat([]byte{'A'}, blockSize*3)
-		mode := DetectMode(EncryptECBConsistentKey(pText))
+		mode := DetectMode(AppendAndEncryptECBConsistentKey(pText))
 		assert.Equal(t, "ECB", mode)
 	})
 
 	t.Run("Decrypt first block", func(t *testing.T) {
 		expected := decodedString[:16]
-		message := CrackConsistentECB(EncryptECBConsistentKey)
+		message := CrackConsistentECB(AppendAndEncryptECBConsistentKey)
 		assert.Equal(t, expected, message[:16])
 	})
 
 	t.Run("Crack ECB", func(t *testing.T) {
 		expected := decodedString
-		decrypted := CrackConsistentECB(EncryptECBConsistentKey)
+		decrypted := CrackConsistentECB(AppendAndEncryptECBConsistentKey)
 		assert.Equal(t, len(expected), len(decrypted))
 		assert.Equal(t, expected, decrypted)
+	})
+}
+
+func TestChallenge13(t *testing.T) {
+	email := "thisIsMyEmail@example.com"
+	t.Run("test kvparser", func(t *testing.T) {
+		expected := map[string]string{
+			"foo": "bar",
+			"baz": "qux",
+			"zap": "zazzle",
+		}
+		got := KVParse("foo=bar&baz=qux&zap=zazzle")
+		assert.Equal(t, expected, got)
+	})
+	t.Run("ProfileFor creates profile", func(t *testing.T) {
+		expected := "email=foo@bar.com&uid=10&role=user"
+		got := ProfileFor("foo@bar.com")
+		assert.Equal(t, expected, got)
+	})
+	t.Run("ProfileFor does not allow unescaped user input", func(t *testing.T) {
+		expected := `email=foo@bar.com%26profile%3Dadmin&uid=10&role=user`
+		got := ProfileFor("foo@bar.com&profile=admin")
+		assert.Equal(t, expected, got)
+	})
+	t.Run("Get encrypted profile returns ciphertext", func(t *testing.T) {
+		ctext := GetEncryptedProfile(email)
+		assert.NotEmpty(t, ctext)
+	})
+	t.Run("Decrypted profile mathes what was encrypted", func(t *testing.T) {
+		profile := ProfileFor(email)
+		encrypted := GetEncryptedProfile(email)
+		decrypted := DecryptProfile(encrypted)
+		assert.Equal(t, profile, decrypted)
+	})
+	t.Run("MakeAdmin returns an admin profile", func(t *testing.T) {
+		adminCipherText := CrackAdminProfile(GetEncryptedProfile)
+		decrypted := string(DecryptProfile(adminCipherText))
+		assert.Contains(t, decrypted, "&role=admin")
+		fmt.Println(decrypted)
+
 	})
 }

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/aes"
 	"encoding/base64"
+	"fmt"
 	"math/rand"
+	"strings"
 )
 
 func PKCSPad(b []byte, blocksize int) []byte {
@@ -17,6 +19,9 @@ func PKCSPad(b []byte, blocksize int) []byte {
 }
 
 func StripPKCSPad(b []byte) []byte {
+	if len(b) == 0 {
+		return []byte{}
+	}
 	last := len(b) - 1
 	toStrip := b[last]
 	firstPadIdx := len(b) - int(toStrip)
@@ -116,15 +121,27 @@ func DetectMode(cText []byte) string {
 
 var ByteAtTimeKey = RandomBytes(16)
 
+func EncryptECBConsistentKey(pText []byte) []byte {
+	return EncryptECB(pText, ByteAtTimeKey)
+}
+
+func DecryptECBConsistentKey(cText []byte) []byte {
+	pText, err := DecryptECB(cText, ByteAtTimeKey)
+	if err != nil {
+		panic(err)
+	}
+	return pText
+}
+
 const input12 = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK"
 
-func EncryptECBConsistentKey(pText []byte) []byte {
+func AppendAndEncryptECBConsistentKey(pText []byte) []byte {
 	pText, err := base64.RawStdEncoding.AppendDecode(pText, []byte(input12))
 	if err != nil {
 		panic(err)
 	}
 
-	return EncryptECB(pText, ByteAtTimeKey)
+	return EncryptECBConsistentKey(pText)
 }
 
 func DetectBlockMsgSize(f func([]byte) []byte) (int, int) {
@@ -172,4 +189,50 @@ func CrackNextByte(encrypt func([]byte) []byte, blockSize int, known []byte) byt
 	cTextWithoutChallenge := encrypt(prefix)
 	targetBlock := cTextWithoutChallenge[tgtBlockStart : tgtBlockStart+blockSize]
 	return dictionary[string(targetBlock)]
+}
+
+func KVParse(s string) map[string]string {
+	result := make(map[string]string)
+	fields := strings.Split(s, "&")
+	for _, f := range fields {
+		kv := strings.Split(f, "=")
+		if len(kv) != 2 {
+			panic("Invalid kv syntax")
+		}
+
+		result[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+	}
+
+	return result
+}
+
+func ProfileFor(email string) string {
+	encoded := strings.Replace(email, "=", "%3D", -1)
+	encoded = strings.Replace(encoded, "&", "%26", -1)
+
+	return fmt.Sprintf("email=%s&uid=10&role=user", encoded)
+}
+
+func GetEncryptedProfile(email string) []byte {
+	profile := ProfileFor(email)
+	return EncryptECBConsistentKey([]byte(profile))
+}
+
+func DecryptProfile(encryptedProfile []byte) string {
+	return string(DecryptECBConsistentKey(encryptedProfile))
+}
+
+func CrackAdminProfile(f func(string) []byte) []byte {
+	// Craft an email that begins the second block with 'admin' and then padding bytes
+	paddedAdmin := "abcdefghijadmin\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b@abc.com"
+	// Get this profile and extract the second block. It should have the encrypted 'admin' and padding blocks
+	encrypted := f(paddedAdmin)
+	endAdminBlock := encrypted[16:32]
+
+	// Craft an email that will make the profile's last block have only 'user'. This can be replaced by the 'admin' block
+	email := "abc@defgh.com"
+	userProfile := f(email)
+	result := append(userProfile[0:len(userProfile)-16], endAdminBlock...)
+
+	return result
 }
